@@ -1,0 +1,95 @@
+const int motor1 = 11;
+const int motor2 = 10;
+
+const int pEchA = 2;
+const int pEchB = 3;
+
+volatile long countPulses = 0;
+const int timeSampling = 50; //ms
+unsigned long lastTime = 0;
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+
+  pinMode(pEchA, INPUT);
+  pinMode(pEchB, INPUT);
+
+  pinMode(motor1, OUTPUT);
+  pinMode(motor2, OUTPUT);
+
+  attachInterrupt(digitalPinToInterrupt(pEchA), ISR_Encoder_A, CHANGE); //CHANGE --> low to high & high to low
+  attachInterrupt(digitalPinToInterrupt(pEchB), ISR_Encoder_B, CHANGE);
+}
+
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  unsigned long currentTime = millis();
+  float deltaTime = currentTime - lastTime; //ms
+  if (deltaTime >= timeSampling){
+    float freqSignal = (float)countPulses/(deltaTime/1.0e3); //Hz; (deltaTime/1.0e3) --> convert ms to s
+    countPulses = 0;
+    float rpm = freqSignal * 60.0 / 3840; // 3840 = p*N; p=strep-up gear (19.2); N=pulses per revolution (200);
+    
+    Serial.println(rpm);
+    
+    lastTime = currentTime;
+
+
+    motor(102);
+  }
+}
+
+
+void ISR_Encoder_A(){
+  bool chA = digitalRead(pEchA);
+  bool chB = digitalRead(pEchB);
+  
+  if(chA){
+    if(chB){
+      countPulses++;
+    }else{
+      countPulses--;
+    }
+  }else{
+    if(chB){
+      countPulses--;
+    }else{
+      countPulses++;
+    }
+  }
+}
+
+void ISR_Encoder_B(){
+  bool chA = digitalRead(pEchA);
+  bool chB = digitalRead(pEchB);
+  
+  if(chB){
+    if(chA){
+      countPulses--;
+    }else{
+      countPulses++;
+    }
+  }else{
+    if(chA){
+      countPulses++;
+    }else{
+      countPulses--;
+    }
+  }
+}
+
+
+void motor(int speed) {
+  if (speed > 0) {
+    analogWrite(motor1, speed);
+    digitalWrite(motor2, LOW);
+  } else if (speed < 0) {
+    analogWrite(motor1, 255 + speed);
+    digitalWrite(motor2, HIGH);
+  } else {
+    digitalWrite(motor1, LOW);
+    digitalWrite(motor2, LOW);
+  }
+}
